@@ -14,14 +14,72 @@ BASE = Path(__file__).resolve().parent
 SENSORS = ("temperature", "humidity", "distance_cm")
 
 
+def read_export_csv(path):
+    """Read SQL wide CSV or InfluxDB annotated Flux CSV (including table blocks)."""
+    from io import StringIO
+
+    with path.open("r", encoding="utf-8-sig", newline="") as file:
+        lines = file.readlines()
+    if not lines:
+        raise ValueError("{}: CSV is empty".format(path.name))
+
+    first = next((line.strip() for line in lines if line.strip()), "")
+    if first.startswith("#group") or first.startswith(",#group"):
+        blocks = []
+        current = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or stripped.startswith(",#"):
+                if current:
+                    blocks.append(current)
+                    current = []
+                continue
+            if current and (stripped.startswith(",result,") or
+                            stripped.startswith("result,table,")):
+                blocks.append(current)
+                current = []
+            current.append(line)
+        if current:
+            blocks.append(current)
+        frames = []
+        for block in blocks:
+            frame = pd.read_csv(StringIO("".join(block)))
+            frame.columns = frame.columns.astype(str).str.strip()
+            if "_time" in frame.columns or "time" in frame.columns:
+                frames.append(frame)
+        if not frames:
+            raise ValueError("{}: no time field in Flux CSV blocks".format(path.name))
+        df = pd.concat(frames, ignore_index=True, sort=False)
+    else:
+        df = pd.read_csv(str(path), encoding="utf-8-sig")
+    df.columns = df.columns.astype(str).str.strip()
+    df = df.loc[:, ~df.columns.str.startswith("Unnamed:")]
+    df = df.rename(columns={"_time": "time"})
+
+    # InfluxDB Flux often exports one row per (timestamp, sensor), not a wide table.
+    if "_field" in df.columns and "_value" in df.columns:
+        df = df[df["_field"].isin(SENSORS)].copy()
+        if "time" not in df.columns:
+            raise ValueError("{}: Flux long CSV has no timestamp".format(path.name))
+        df["_value"] = pd.to_numeric(df["_value"], errors="coerce")
+        keys = ["time"]
+        if "device_id" in df.columns:
+            keys.append("device_id")
+        df = df.pivot_table(index=keys, columns="_field", values="_value",
+                            aggfunc="mean", dropna=False).reset_index()
+        df.columns.name = None
+
+    if "time" not in df.columns:
+        raise ValueError("{}: missing time column. Available columns: {}. "
+                         "Please send the first 6 CSV lines (without secrets)."
+                         .format(path.name, list(df.columns)))
+    return df
+
+
 def describe(path):
     if not path.is_file():
         return {"status": "not_found", "filename": path.name}
-    df = pd.read_csv(str(path), encoding="utf-8-sig")
-    df.columns = df.columns.astype(str).str.strip()
-    df = df.rename(columns={"_time": "time"})
-    if "time" not in df.columns:
-        raise ValueError("{}: missing time column".format(path.name))
+    df = read_export_csv(path)
     df["time"] = pd.to_datetime(df["time"], utc=True, errors="coerce")
     times = df["time"].dropna()
     result = {
