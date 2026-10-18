@@ -38,3 +38,16 @@ Tai ket qua CSV va luu tai thu muc du an voi ten `sensor_raw.csv`. Can co cac co
 
 ## Bao mat
 Khong commit `.env`, access token, mat khau hoac credentials. Thu hoi moi token da tung bi chia se. Repository public thi can kiem tra lich su Git neu secret tung duoc commit.
+
+## Kiem thu va danh gia (khong can ket noi InfluxDB khi danh gia CSV)
+Sau khi da co `sensor_raw.csv` va `processed_data.csv`, chay:
+
+```bat
+"C:\Users\Admin\AppData\Local\Programs\Python\Python38-32\python.exe" -m unittest -v test_evaluate
+"C:\Users\Admin\AppData\Local\Programs\Python\Python38-32\python.exe" evaluate.py
+"C:\Users\Admin\AppData\Local\Programs\Python\Python38-32\python.exe" evaluate.py --online
+```
+
+`evaluate.py` xuat `evaluation_report.json` (da ignore khoi Git), gom so hang, thoi gian dau/cuoi, timestamp trung, gia tri thieu, min/max/mean, outlier flag (neu co), khoang cach giua cac timestamp. Lenh `--online` do HTTP round-trip ThingsBoard va tuoi mau telemetry tai luc doc. **Khong duoc goi sample age hoac HTTP RTT la do tre end-to-end**. Muon do ThingsBoard -> InfluxDB can ghi them timestamp khi collector nhan va khi InfluxDB xac nhan ghi.
+
+Luu y: so ban ghi CSV va so diem ghi InfluxDB khong nhat thiet bang nhau vi moi diem InfluxDB co the chua nhieu field. Dau ra kiem thu tren may moi la so lieu dua vao bao cao. Khong push file `.env` hoac token.
