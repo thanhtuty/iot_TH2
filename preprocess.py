@@ -24,87 +24,87 @@ OUTPUT_CSV = BASE_DIR / "processed_data.csv"
 
 
 def read_data():
-"""Read InfluxDB exported CSV: annotated Flux long format or SQL wide CSV."""
-if not INPUT_CSV.exists():
-    raise FileNotFoundError("Khong tim thay sensor_raw.csv trong thu muc IoT_Lab2")
-
-with open(str(INPUT_CSV), "r", encoding="utf-8-sig", newline="") as f:
-    first = f.readline().lstrip("\ufeff").strip()
-
-if first.startswith("#group") or first.startswith(",#group"):
-    # Flux annotated CSV may contain multiple blocks, each with its own
-    # #group/#datatype/#default metadata and a header row.
-    import csv
-    from io import StringIO
+    """Read InfluxDB exported CSV: annotated Flux long format or SQL wide CSV."""
+    if not INPUT_CSV.exists():
+        raise FileNotFoundError("Khong tim thay sensor_raw.csv trong thu muc IoT_Lab2")
 
     with open(str(INPUT_CSV), "r", encoding="utf-8-sig", newline="") as f:
-        lines = f.readlines()
+        first = f.readline().lstrip("\ufeff").strip()
 
-    blocks = []
-    current = []
-    for line in lines:
-        stripped = line.lstrip("\ufeff").strip()
-        if stripped.startswith("#") or stripped.startswith(",#"):
-            if current:
+    if first.startswith("#group") or first.startswith(",#group"):
+        # Flux annotated CSV may contain multiple blocks, each with its own
+        # #group/#datatype/#default metadata and a header row.
+        import csv
+        from io import StringIO
+
+        with open(str(INPUT_CSV), "r", encoding="utf-8-sig", newline="") as f:
+            lines = f.readlines()
+
+        blocks = []
+        current = []
+        for line in lines:
+            stripped = line.lstrip("\ufeff").strip()
+            if stripped.startswith("#") or stripped.startswith(",#"):
+                if current:
+                    blocks.append(current)
+                    current = []
+                continue
+            if not stripped:
+                if current:
+                    blocks.append(current)
+                    current = []
+                continue
+            # An annotated table header usually begins ,result,table,...
+            if current and (stripped.startswith(",result,") or
+                            stripped.startswith("result,table,")):
                 blocks.append(current)
                 current = []
-            continue
-        if not stripped:
-            if current:
-                blocks.append(current)
-                current = []
-            continue
-        # An annotated table header usually begins ,result,table,...
-        if current and (stripped.startswith(",result,") or
-                        stripped.startswith("result,table,")):
+            current.append(line)
+        if current:
             blocks.append(current)
-            current = []
-        current.append(line)
-    if current:
-        blocks.append(current)
 
-    frames = []
-    for block in blocks:
-        try:
-            item = pd.read_csv(StringIO("".join(block)))
-            item.columns = item.columns.astype(str).str.strip()
-            if "_time" in item.columns or "time" in item.columns:
-                frames.append(item)
-        except (pd.errors.EmptyDataError, pd.errors.ParserError):
-            pass
-    if not frames:
-        raise ValueError("Khong doc duoc bang du lieu trong Flux CSV")
-    df = pd.concat(frames, ignore_index=True, sort=False)
-else:
-    df = pd.read_csv(str(INPUT_CSV), encoding="utf-8-sig")
+        frames = []
+        for block in blocks:
+            try:
+                item = pd.read_csv(StringIO("".join(block)))
+                item.columns = item.columns.astype(str).str.strip()
+                if "_time" in item.columns or "time" in item.columns:
+                    frames.append(item)
+            except (pd.errors.EmptyDataError, pd.errors.ParserError):
+                pass
+        if not frames:
+            raise ValueError("Khong doc duoc bang du lieu trong Flux CSV")
+        df = pd.concat(frames, ignore_index=True, sort=False)
+    else:
+        df = pd.read_csv(str(INPUT_CSV), encoding="utf-8-sig")
 
-df.columns = df.columns.astype(str).str.strip()
-df = df.loc[:, ~df.columns.str.startswith("Unnamed:")]
-df = df.rename(columns={"_time": "time"})
+    df.columns = df.columns.astype(str).str.strip()
+    df = df.loc[:, ~df.columns.str.startswith("Unnamed:")]
+    df = df.rename(columns={"_time": "time"})
 
-# Flux format: one sensor per row (_field, _value); pivot to one time row.
-if "_field" in df.columns and "_value" in df.columns:
-    if "device_id" not in df.columns:
-        raise ValueError("Flux CSV thieu tag device_id. Hay export kem device_id")
-    df = df[df["_field"].isin(SENSORS)].copy()
-    df["_value"] = pd.to_numeric(df["_value"], errors="coerce")
-    df = df.pivot_table(
-        index=["time", "device_id"], columns="_field",
-        values="_value", aggfunc="mean"
-    ).reset_index()
-    df.columns.name = None
+    # Flux format: one sensor per row (_field, _value); pivot to one time row.
+    if "_field" in df.columns and "_value" in df.columns:
+        if "device_id" not in df.columns:
+            raise ValueError("Flux CSV thieu tag device_id. Hay export kem device_id")
+        df = df[df["_field"].isin(SENSORS)].copy()
+        df["_value"] = pd.to_numeric(df["_value"], errors="coerce")
+        df = df.pivot_table(
+            index=["time", "device_id"], columns="_field",
+            values="_value", aggfunc="mean"
+        ).reset_index()
+        df.columns.name = None
 
-required = ["time", "device_id"] + SENSORS
-missing = [col for col in required if col not in df.columns]
-if missing:
-    raise ValueError("CSV thieu cot: {}. Cot dang co: {}".format(
-        missing, list(df.columns)))
+    required = ["time", "device_id"] + SENSORS
+    missing = [col for col in required if col not in df.columns]
+    if missing:
+        raise ValueError("CSV thieu cot: {}. Cot dang co: {}".format(
+            missing, list(df.columns)))
 
-df = df.loc[df["device_id"].astype(str).str.strip() == DEVICE].copy()
-if df.empty:
-    raise ValueError("Khong co ban ghi trung TB_DEVICE_ID trong .env")
-print("So ban ghi doc tu CSV:", len(df))
-return df
+    df = df.loc[df["device_id"].astype(str).str.strip() == DEVICE].copy()
+    if df.empty:
+        raise ValueError("Khong co ban ghi trung TB_DEVICE_ID trong .env")
+    print("So ban ghi doc tu CSV:", len(df))
+    return df
 
 
 
