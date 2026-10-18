@@ -1,7 +1,8 @@
-# Versions supporting Python 3.8.5
+# Python 3.8.5 (including Windows 32-bit)
 requests>=2.28,<3
 python-dotenv==1.0.1
 influxdb-client>=1.36,<2
 numpy==1.24.4
 pandas==1.5.3
-streamlit==1.31.1
+Flask==3.0.3
+# Chart.js is loaded from CDN in dashboard.py; no pyarrow required.
