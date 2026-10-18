@@ -34,7 +34,7 @@ INFLUX_ORG = os.environ["INFLUX_ORG"]
 INFLUX_BUCKET = os.environ["INFLUX_BUCKET"]
 
 POLL_SECONDS = 5
-LOOKBACK_MS = 3600000  # Lấy lại 2 phút gần nhất
+LOOKBACK_MS = 3600000  # Lấy dữ liệu 1 giờ gần nhất
 
 # ==========================================
 # 2. KẾT NỐI THINGSBOARD
@@ -139,7 +139,7 @@ saved = set()
 
 def main():
     print("================================")
-    print("IOT LAB 2 - MQTT DATA PIPELINE")
+    print("IOT LAB 2 - REST DATA PIPELINE")
     print("ThingsBoard REST -> InfluxDB")
     print("================================")
     print("Dang thu thap du lieu...")
