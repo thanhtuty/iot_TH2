@@ -3,14 +3,14 @@
 ## Kien truc
 Wokwi ESP32 -> MQTT -> ThingsBoard Cloud -> Python (REST polling) -> InfluxDB Cloud (`sensor_raw`).
 
-Tien xu ly: xuat `sensor_raw.csv` tu InfluxDB, chay Pandas (IQR, resampling 1 phut, noi suy, rolling mean, delta, Min-Max) va ghi `sensor_processed`. Dashboard Streamlit hien thi file CSV da xu ly.
+Tien xu ly: xuat `sensor_raw.csv` tu InfluxDB, chay Pandas (IQR, resampling 1 phut, noi suy, rolling mean, delta, Min-Max) va ghi `sensor_processed`. Dashboard Flask + Chart.js hien thi file CSV da xu ly (khong can PyArrow).
 
 **Gioi han:** Python dung REST API ThingsBoard, chua dap ung yeu cau Python MQTT subscribe truc tiep. Dashboard hien CSV, khong phai real-time. Buoc xuat CSV can lam lai khi co du lieu moi.
 
 ## Chay tren Windows (Python 3.8)
 ```bat
 cd /d C:\Users\Admin\Desktop\IoT_Lab2
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt (voi interpreter Python 3.8)
 copy .env.example .env
 ```
 Mo `.env` va dien token/API key moi (khong chia se cho nguoi khac).
@@ -27,12 +27,12 @@ ORDER BY time ASC
 ```
 Tai ket qua CSV va luu tai thu muc du an voi ten `sensor_raw.csv`. Can co cac cot `time, device_id, temperature, humidity, distance_cm` (hoac annotated Flux CSV co `_time, _field, _value, device_id`).
 6. `python preprocess.py` - tao `processed_data.csv` va ghi `sensor_processed`.
-7. `python -m streamlit run dashboard.py` - xem dashboard.
+7. `python dashboard.py` - mo http://127.0.0.1:8501 (Chart.js can Internet).
 
 ## Cau truc
 - `collector.py`: ThingsBoard REST -> InfluxDB
 - `preprocess.py`: CSV -> IQR -> resampling -> interpolation -> features -> InfluxDB
-- `dashboard.py`: Dashboard tu processed_data.csv
+- `dashboard.py`: Flask dashboard tu processed_data.csv
 - `.env.example`: Mau bien moi truong, khong chua secret
 - `.gitignore`: Loai tru .env va CSV sinh ra
 
